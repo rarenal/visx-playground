@@ -2,10 +2,11 @@ import { AxisScale, Orientation, SharedAxisProps } from '@visx/axis';
 import { curveMonotoneX } from '@visx/curve';
 import { LinearGradient } from '@visx/gradient';
 import { AnimatedAxis, AnimatedGridColumns, AnimatedGridRows } from '@visx/react-spring';
-import { coerceNumber, ScaleInput, scaleLinear, scaleUtc } from '@visx/scale';
+import { coerceNumber, ScaleInput, scaleLinear, scaleTime, scaleUtc } from '@visx/scale';
 import AreaClosed from '@visx/shape/lib/shapes/AreaClosed';
 import { timeFormat } from 'd3-time-format';
 import React, { useMemo } from 'react';
+import { extent } from "d3-array";
 
 export const backgroundColor = "#da7cff";
 const axisColor = "#fff";
@@ -35,15 +36,15 @@ const getMinMax = (vals: (number | { valueOf(): number })[]) => {
 export type AxisProps = {
   width: number;
   height: number;
-  data: GraphData;
+  data: GraphDatapoint[];
 };
 
-export interface GraphData {
-  timestamps: string[];
-  values: number[];
+export interface GraphDatapoint {
+  timestamp: Date;
+  value: number;
 }
 
-export default function Example({ width: outerWidth = 800, height: outerHeight = 800, data}: AxisProps) {
+export function Graph({ width: outerWidth = 800, height: outerHeight = 800, data}: AxisProps) {
   // in svg, margin is subtracted from total width/height
   const width = outerWidth - margin.left - margin.right;
   const height = outerHeight - margin.top - margin.bottom;
@@ -54,8 +55,7 @@ export default function Example({ width: outerWidth = 800, height: outerHeight =
     values: ScaleInput<Scale>[];
   }
 
-  const timeValues = data.timestamps.map((dateStr) => new Date(dateStr));
-  const dataValues = data.values;
+  const timeValues = data.map((datapoint) => datapoint.timestamp);
 
   const axes: AxisDemoProps<AxisScale<number>>[] = useMemo(() => {
     return [
@@ -74,15 +74,21 @@ export default function Example({ width: outerWidth = 800, height: outerHeight =
   const scalePadding = 40;
   const scaleHeight = height / axes.length - scalePadding;
 
-  console.log(getMinMax(dataValues));
+  const [minX, maxX] = extent(timeValues);
+  const [, maxY] = extent(data.map((item) => item.value));
+
+  const xScale = scaleTime({
+    domain: [minX, maxX],
+    range: [0, width]
+  });
 
   const yScale = scaleLinear({
-    domain: getMinMax(dataValues),
+    domain: [0, maxY],
     range: [scaleHeight, 0]
   });
 
   return (
-    <>
+    <div>
       <svg width={outerWidth} height={outerHeight}>
         <LinearGradient
           id="visx-axis-gradient"
@@ -111,6 +117,7 @@ export default function Example({ width: outerWidth = 800, height: outerHeight =
                 width={width}
                 numTicks={6}
                 animationTrajectory="center"
+                lineStyle={{opacity: 0.4}}
               />
               <AnimatedGridColumns
                 key={`gridcolumns-center`}
@@ -119,9 +126,12 @@ export default function Example({ width: outerWidth = 800, height: outerHeight =
                 height={scaleHeight}
                 numTicks={20}
                 animationTrajectory="center"
+                lineStyle={{opacity: 0.4}}
               />
               <AreaClosed
-                // data={dataValues.map((data) => ({value: data}))}
+                data={data}
+                x={(d) => xScale(d.timestamp)}
+                y={(d) => yScale(d.value)}
                 yScale={yScale}
                 curve={curveMonotoneX}
                 fill={gridColor}
@@ -159,6 +169,6 @@ export default function Example({ width: outerWidth = 800, height: outerHeight =
           ))}
         </g>
       </svg>
-    </>
+    </div>
   );
 }

@@ -1,20 +1,23 @@
+import { ToggleButton, ToggleButtonGroup } from '@mui/material';
 import React, { useEffect, useState } from 'react';
-import Graph, { GraphData } from '../Graph/Graph';
+import { BrushChart } from '../Visualizations/BrushChart';
+import { Graph, GraphDatapoint } from '../Visualizations/Graph';
 
 interface CovidHistory {
   dates: string[];
   cases: number[];
 }
 
-function toGraphData(history: CovidHistory): GraphData {
-  return {
-    timestamps: history.dates,
-    values: history.cases,
-  }
+const toGraphData = (history: CovidHistory): GraphDatapoint[] => {
+  return history.dates.map((date, index) => ({
+    timestamp: new Date(date),
+    value: history.cases[index],
+  }));
 }
 
 export const CovidCases = () => {
-  const [data, setData] = useState<CovidHistory | null>(null);
+  const [rawData, setRawData] = useState<GraphDatapoint[]>([]);
+  const [selectedVisualization, setSelectedVisualization] = useState<string>('zoom');
 
   useEffect(() => {
     fetch('https://covid-api.mmediagroup.fr/v1/history?status=confirmed&country=Spain')
@@ -26,9 +29,27 @@ export const CovidCases = () => {
           history.cases.push(response['All'].dates[date]);
         })
 
-        setData(history);
+        setRawData(toGraphData(history));
       });
   }, [])
 
-  return (data && <Graph data={toGraphData(data)} width={1200} height={600}/>)
+  const handleChange = (_, newVisualization) => {
+    setSelectedVisualization(newVisualization);
+  };
+
+  return (
+    <div style={{display: 'grid', gap: '10px'}}>
+      <ToggleButtonGroup
+        color="secondary"
+        value={selectedVisualization}
+        style={{justifyContent: 'center'}}
+        exclusive
+        onChange={handleChange}
+      >
+        <ToggleButton value="zoom">Zooming + Tooltip</ToggleButton>
+        <ToggleButton value="animated">Animated grid & axes</ToggleButton>
+      </ToggleButtonGroup>
+      {rawData && selectedVisualization === 'zoom' && <BrushChart rawData={rawData}/>}
+      {rawData && selectedVisualization === 'animated' && <Graph data={rawData} width={1200} height={600}/>}
+    </div>);
 }
