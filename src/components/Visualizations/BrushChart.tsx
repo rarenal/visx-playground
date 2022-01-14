@@ -1,13 +1,17 @@
 import { Brush } from '@visx/brush';
 import BaseBrush from '@visx/brush/lib/BaseBrush';
 import { Bounds } from '@visx/brush/lib/types';
+import { localPoint } from '@visx/event';
 import { LinearGradient } from '@visx/gradient';
 import { PatternLines } from '@visx/pattern';
 import { scaleLinear, scaleTime } from '@visx/scale';
-import { extent } from 'd3-array';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { defaultStyles, TooltipWithBounds, useTooltip } from '@visx/tooltip';
+import { extent, bisector } from 'd3-array';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { formatCount, formatDate } from '../../utils/formatters';
 import { AreaChart } from './AreaChart';
 import { GraphDatapoint } from './Graph';
+import { Line } from '@visx/shape';
 
 const brushMargin = { top: 10, bottom: 15, left: 50, right: 20 };
 const chartSeparation = 30;
@@ -24,21 +28,44 @@ const selectedBrushStyle = {
 // accessors
 const getDate = (d: GraphDatapoint) => d.timestamp;
 const getValue = (d: GraphDatapoint) => d.value;
+const bisectDate = bisector(getDate).left;
 
 export const BrushChart = ({rawData}: {rawData: GraphDatapoint[]}) => {
+  // hooks
   const [filteredData, setFilteredData] = useState<GraphDatapoint[]>(rawData);
   const brushRef = useRef<BaseBrush | null>(null);
+  const {
+    tooltipData,
+    tooltipLeft = 0,
+    tooltipTop = 0,
+    tooltipOpen,
+    showTooltip,
+    hideTooltip
+  } = useTooltip<{x: Date; y: number}>();
 
   useEffect(() => {
-    setFilteredData(rawData);
+    // data needs to be ascending in order to have the bisector working
+    const sortedData = rawData.sort((a, b) => +a.timestamp - +b.timestamp);
+    setFilteredData(sortedData);
   }, [rawData]);
 
+
+  // styles
+  const tooltipStyles = {
+    ...defaultStyles,
+    minWidth: 60,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    color: 'white',
+  };
+
+  // bounds
   const outerWidth = 1300, outerHeight = 600, margin = {
     top: 20,
     left: 65,
     bottom: 20,
     right: 20,
-  }
+  };
+
   const height = outerHeight - margin.top - margin.bottom;
   const chartBottomMargin = chartSeparation + 10;
   const chartHeight = 0.8 * height - chartBottomMargin;
@@ -53,6 +80,7 @@ export const BrushChart = ({rawData}: {rawData: GraphDatapoint[]}) => {
   const [, yMax] = extent((filteredData ?? []).map((datapoint) => datapoint.value));
   const [, brushYMax] = extent(rawData.map((datapoint) => datapoint.value));
 
+  // scales definition
   const xScale = useMemo(() => scaleTime<number>({
     domain: [xMin, xMax],
     range: [0, width],
@@ -75,7 +103,8 @@ export const BrushChart = ({rawData}: {rawData: GraphDatapoint[]}) => {
     nice: true,
   }), [brushYMax, brushHeight]);
 
-  const onBrushChange = (domain: Bounds | null) => {
+  // event handlers
+  const onBrushChange = useCallback((domain: Bounds | null) => {
     if (!domain) return;
     const {x0, x1, y0, y1} = domain;
     const newFilteredData = rawData.filter((point) => {
@@ -85,13 +114,53 @@ export const BrushChart = ({rawData}: {rawData: GraphDatapoint[]}) => {
       return x > x0 && x < x1 && y > y0 && y < y1;
     });
     setFilteredData(newFilteredData);
+  }, [rawData]);
+
+  const handleMouseMove = useCallback((event) => {
+    const { x, y } = localPoint(event) || { x: 0 };
+    if (x < margin.left || x > width + margin.left) {
+      hideTooltip();
+      return;
+    }
+
+    const x0: Date = (xScale as any).invert(x - margin.left);
+    const index = bisectDate(filteredData, x0);
+
+    const prevValue = filteredData[index - 1];
+    const nextValue = filteredData[index];
+
+    let value = prevValue;
+
+    if (!prevValue && !nextValue) {
+      hideTooltip();
+      return;
+    } else if (!prevValue) {
+      value = nextValue
+    } else if (!nextValue) {
+      value = prevValue
+    } else {
+      value = x0.getTime() - +getDate(prevValue) > x0.getTime() - +getDate(nextValue) ? nextValue : prevValue;
+    }
+
+    showTooltip({
+      tooltipData: {
+        x: x0,
+        y: getValue(value),
+      },
+      tooltipLeft: x,
+      tooltipTop: yScale(getValue(value)),
+    });
+  }, [filteredData]);
+
+  const handleMouseLeave = () => {
+    hideTooltip();
   }
 
   return (
-    <div>
+    <div style={{position: 'relative'}}>
       <svg width={outerWidth} height={outerHeight}>
         <LinearGradient id={GRADIENT_ID} from={background} to={background2} rotate={45} />
-        <rect x={0} y={0} width={outerWidth} height={outerHeight} fill={`url(#${GRADIENT_ID})`} rx={14} />
+        <rect x={0} y={0} width={outerWidth} height={outerHeight} fill={`url(#${GRADIENT_ID})`} rx={14} onMouseMove={handleMouseMove} />
         <AreaChart
           data={filteredData ?? []}
           gradientColor={background2}
@@ -135,7 +204,53 @@ export const BrushChart = ({rawData}: {rawData: GraphDatapoint[]}) => {
             useWindowMoveEvents
           />
         </AreaChart>
+        {tooltipData && (
+          <g>
+            <Line
+              from={{ x: tooltipLeft, y: margin.top }}
+              to={{ x: tooltipLeft, y: chartHeight + 20 }}
+              stroke={'#EDF2F7'}
+              strokeWidth={2}
+              pointerEvents="none"
+              strokeDasharray="4,2"
+            />
+            <circle
+              cx={tooltipLeft}
+              cy={tooltipTop + margin.top + 1}
+              r={4}
+              fill="black"
+              fillOpacity={0.1}
+              stroke="black"
+              strokeOpacity={0.1}
+              strokeWidth={2}
+              pointerEvents="none"
+            />
+            <circle
+              cx={tooltipLeft}
+              cy={tooltipTop + margin.top}
+              r={4}
+              fill="rebeccapurple"
+              stroke="white"
+              strokeWidth={2}
+              pointerEvents="none"
+            />
+          </g>
+        )}
+        <rect x={margin.left} y={margin.top} width={width} height={chartHeight} fill={'transparent'}
+              onMouseMove={handleMouseMove}
+              onMouseLeave={handleMouseLeave}
+        />
       </svg>
+      {tooltipData && tooltipOpen ? (
+        <TooltipWithBounds key={Math.random()}
+                           top={tooltipTop}
+                           left={tooltipLeft + 150}
+                           style={tooltipStyles}
+        >
+          <p>{`Date: ${formatDate(tooltipData.x)}`}</p>
+          <p>{`Cases: ${formatCount(tooltipData.y)}`}</p>
+        </TooltipWithBounds>
+      ) : null}
     </div>
   );
 };

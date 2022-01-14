@@ -1,10 +1,10 @@
 import { AxisBottom, AxisLeft, AxisScale } from '@visx/axis';
 import { curveMonotoneX } from '@visx/curve';
 import { LinearGradient } from '@visx/gradient';
-import React, { PropsWithChildren } from 'react';
-import { GraphDatapoint } from './Graph';
 import { Group } from '@visx/group';
 import { AreaClosed } from '@visx/shape';
+import React, { PropsWithChildren } from 'react';
+import { GraphDatapoint } from './Graph';
 
 interface AreaChartProps {
   data: GraphDatapoint[];
@@ -55,7 +55,13 @@ export const AreaChart = ({
 }: PropsWithChildren<AreaChartProps>) => {
   return (
     <Group left={left || margin.left} top={top || margin.top}>
-      <LinearGradient id="gradient" from={gradientColor} fromOpacity={1} to={gradientColor} toOpacity={0.2} />
+      <LinearGradient
+        id="gradient"
+        from={gradientColor}
+        fromOpacity={1}
+        to={gradientColor}
+        toOpacity={0.2}
+      />
       <AreaClosed<GraphDatapoint>
         data={data}
         x={(d) => xScale(getDate(d)) || 0}
