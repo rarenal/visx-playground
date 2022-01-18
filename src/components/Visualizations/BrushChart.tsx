@@ -1,18 +1,20 @@
 import { Brush } from '@visx/brush';
 import BaseBrush from '@visx/brush/lib/BaseBrush';
 import { Bounds } from '@visx/brush/lib/types';
-import { localPoint } from '@visx/event';
 import { LinearGradient } from '@visx/gradient';
 import { PatternLines } from '@visx/pattern';
 import { scaleLinear, scaleTime } from '@visx/scale';
+import { Line } from '@visx/shape';
 import { defaultStyles, TooltipWithBounds, useTooltip } from '@visx/tooltip';
-import { extent, bisector } from 'd3-array';
+import { extent } from 'd3-array';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useChartInteraction } from '../../hooks/custom-hooks';
+import { GraphDatapoint } from '../../models';
+import { getDate, getValue } from '../../utils/accessors';
 import { formatCount, formatDate } from '../../utils/formatters';
 import { AreaChart } from './AreaChart';
-import { GraphDatapoint } from './Graph';
-import { Line } from '@visx/shape';
 
+// styling
 const brushMargin = { top: 10, bottom: 15, left: 50, right: 20 };
 const chartSeparation = 30;
 const PATTERN_ID = 'brush_pattern';
@@ -24,11 +26,12 @@ const selectedBrushStyle = {
   fill: `url(#${PATTERN_ID})`,
   stroke: 'white',
 };
-
-// accessors
-const getDate = (d: GraphDatapoint) => d.timestamp;
-const getValue = (d: GraphDatapoint) => d.value;
-const bisectDate = bisector(getDate).left;
+const tooltipStyles = {
+  ...defaultStyles,
+  minWidth: 60,
+  backgroundColor: 'rgba(0,0,0,0.9)',
+  color: 'white',
+};
 
 export const BrushChart = ({rawData}: {rawData: GraphDatapoint[]}) => {
   // hooks
@@ -48,15 +51,6 @@ export const BrushChart = ({rawData}: {rawData: GraphDatapoint[]}) => {
     const sortedData = rawData.sort((a, b) => +a.timestamp - +b.timestamp);
     setFilteredData(sortedData);
   }, [rawData]);
-
-
-  // styles
-  const tooltipStyles = {
-    ...defaultStyles,
-    minWidth: 60,
-    backgroundColor: 'rgba(0,0,0,0.9)',
-    color: 'white',
-  };
 
   // bounds
   const outerWidth = 1300, outerHeight = 600, margin = {
@@ -116,45 +110,15 @@ export const BrushChart = ({rawData}: {rawData: GraphDatapoint[]}) => {
     setFilteredData(newFilteredData);
   }, [rawData]);
 
-  const handleMouseMove = useCallback((event) => {
-    const { x, y } = localPoint(event) || { x: 0 };
-    if (x < margin.left || x > width + margin.left) {
-      hideTooltip();
-      return;
-    }
-
-    const x0: Date = (xScale as any).invert(x - margin.left);
-    const index = bisectDate(filteredData, x0);
-
-    const prevValue = filteredData[index - 1];
-    const nextValue = filteredData[index];
-
-    let value = prevValue;
-
-    if (!prevValue && !nextValue) {
-      hideTooltip();
-      return;
-    } else if (!prevValue) {
-      value = nextValue
-    } else if (!nextValue) {
-      value = prevValue
-    } else {
-      value = x0.getTime() - +getDate(prevValue) > x0.getTime() - +getDate(nextValue) ? nextValue : prevValue;
-    }
-
-    showTooltip({
-      tooltipData: {
-        x: x0,
-        y: getValue(value),
-      },
-      tooltipLeft: x,
-      tooltipTop: yScale(getValue(value)),
-    });
-  }, [filteredData]);
-
-  const handleMouseLeave = () => {
-    hideTooltip();
-  }
+  const [handleMouseMove, handleMouseLeave] = useChartInteraction(
+    width,
+    margin,
+    hideTooltip,
+    showTooltip,
+    xScale,
+    yScale,
+    filteredData,
+  );
 
   return (
     <div style={{position: 'relative'}}>
@@ -244,7 +208,7 @@ export const BrushChart = ({rawData}: {rawData: GraphDatapoint[]}) => {
       {tooltipData && tooltipOpen ? (
         <TooltipWithBounds key={Math.random()}
                            top={tooltipTop}
-                           left={tooltipLeft + 150}
+                           left={tooltipLeft + 100}
                            style={tooltipStyles}
         >
           <p>{`Date: ${formatDate(tooltipData.x)}`}</p>

@@ -7,11 +7,12 @@ import AreaClosed from '@visx/shape/lib/shapes/AreaClosed';
 import { timeFormat } from 'd3-time-format';
 import React, { useMemo } from 'react';
 import { extent } from "d3-array";
+import { GraphDatapoint } from '../../models';
 
-export const backgroundColor = "#da7cff";
+const backgroundColor = "#da7cff";
 const axisColor = "#fff";
 const tickLabelColor = "#fff";
-export const labelColor = "#fff";
+const labelColor = "#fff";
 const gridColor = "#fff";
 const margin = {
   top: 40,
@@ -33,18 +34,13 @@ const getMinMax = (vals: (number | { valueOf(): number })[]) => {
   return [Math.min(...numericVals), Math.max(...numericVals)];
 };
 
-export type AxisProps = {
+interface AxisProps {
   width: number;
   height: number;
   data: GraphDatapoint[];
-};
-
-export interface GraphDatapoint {
-  timestamp: Date;
-  value: number;
 }
 
-export function Graph({ width: outerWidth = 800, height: outerHeight = 800, data}: AxisProps) {
+export function AnimatedGraph({ width: outerWidth = 800, height: outerHeight = 800, data}: AxisProps) {
   // in svg, margin is subtracted from total width/height
   const width = outerWidth - margin.left - margin.right;
   const height = outerHeight - margin.top - margin.bottom;

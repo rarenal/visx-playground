@@ -4,7 +4,7 @@ import { LinearGradient } from '@visx/gradient';
 import { Group } from '@visx/group';
 import { AreaClosed } from '@visx/shape';
 import React, { PropsWithChildren } from 'react';
-import { GraphDatapoint } from './Graph';
+import { GraphDatapoint } from '../../models';
 
 interface AreaChartProps {
   data: GraphDatapoint[];
