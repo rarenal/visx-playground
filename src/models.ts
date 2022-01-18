@@ -10,3 +10,7 @@ export interface GraphDatapoint {
   value: number;
 }
 
+export interface PieDatapoint {
+  category: string;
+  value: number;
+}

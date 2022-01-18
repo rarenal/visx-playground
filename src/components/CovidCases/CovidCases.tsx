@@ -1,9 +1,10 @@
 import { ToggleButton, ToggleButtonGroup } from '@mui/material';
 import React, { useEffect, useState } from 'react';
-import { GraphDatapoint } from '../../models';
+import { GraphDatapoint, PieDatapoint } from '../../models';
 import { BrushChart } from '../Visualizations/BrushChart';
 import { AnimatedGraph } from '../Visualizations/AnimatedGraph';
 import { MarkersChart } from '../Visualizations/MarkersChart';
+import { PieChart } from '../Visualizations/PieChart';
 
 interface CovidHistory {
   dates: string[];
@@ -18,7 +19,8 @@ const toGraphData = (history: CovidHistory): GraphDatapoint[] => {
 }
 
 export const CovidCases = () => {
-  const [rawData, setRawData] = useState<GraphDatapoint[]>([]);
+  const [graphData, setGraphData] = useState<GraphDatapoint[]>([]);
+  const [pieData, setPieData] = useState<PieDatapoint[]>([]);
   const [selectedVisualization, setSelectedVisualization] = useState<string>('zoom');
 
   useEffect(() => {
@@ -31,9 +33,23 @@ export const CovidCases = () => {
           history.cases.push(response['All'].dates[date]);
         })
 
-        setRawData(toGraphData(history));
+        setGraphData(toGraphData(history));
       });
-  }, [])
+
+    fetch('https://covid-api.mmediagroup.fr/v1/cases?continent=Europe')
+      .then((res) => res.json())
+      .then((response) => {
+        const pieData: PieDatapoint[] = Object.entries(response).map(([key, value]: [string, any]) => {
+          const cases = value['All'];
+
+          return {
+            category: key,
+            value: cases.confirmed / cases.population * 100,
+          }
+        });
+        setPieData(pieData);
+      });
+  }, []);
 
   const handleChange = (_, newVisualization) => {
     setSelectedVisualization(newVisualization);
@@ -51,9 +67,11 @@ export const CovidCases = () => {
         <ToggleButton value="zoom">Zooming + Tooltip</ToggleButton>
         <ToggleButton value="animated">Animated grid & axes</ToggleButton>
         <ToggleButton value="marker">Markers</ToggleButton>
+        <ToggleButton value="pie">Pie Chart</ToggleButton>
       </ToggleButtonGroup>
-      {rawData && selectedVisualization === 'zoom' && <BrushChart rawData={rawData}/>}
-      {rawData && selectedVisualization === 'animated' && <AnimatedGraph data={rawData} width={1200} height={600}/>}
-      {rawData && selectedVisualization === 'marker' && <MarkersChart data={rawData}/>}
+      {graphData && selectedVisualization === 'zoom' && <BrushChart rawData={graphData}/>}
+      {graphData && selectedVisualization === 'animated' && <AnimatedGraph data={graphData} width={1200} height={600}/>}
+      {graphData && selectedVisualization === 'marker' && <MarkersChart data={graphData}/>}
+      {graphData && selectedVisualization === 'pie' && <PieChart data={pieData}/>}
     </div>);
 }
