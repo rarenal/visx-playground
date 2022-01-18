@@ -1,7 +1,9 @@
 import { ToggleButton, ToggleButtonGroup } from '@mui/material';
 import React, { useEffect, useState } from 'react';
+import { GraphDatapoint } from '../../models';
 import { BrushChart } from '../Visualizations/BrushChart';
-import { Graph, GraphDatapoint } from '../Visualizations/Graph';
+import { AnimatedGraph } from '../Visualizations/AnimatedGraph';
+import { MarkersChart } from '../Visualizations/MarkersChart';
 
 interface CovidHistory {
   dates: string[];
@@ -48,8 +50,10 @@ export const CovidCases = () => {
       >
         <ToggleButton value="zoom">Zooming + Tooltip</ToggleButton>
         <ToggleButton value="animated">Animated grid & axes</ToggleButton>
+        <ToggleButton value="marker">Markers</ToggleButton>
       </ToggleButtonGroup>
       {rawData && selectedVisualization === 'zoom' && <BrushChart rawData={rawData}/>}
-      {rawData && selectedVisualization === 'animated' && <Graph data={rawData} width={1200} height={600}/>}
+      {rawData && selectedVisualization === 'animated' && <AnimatedGraph data={rawData} width={1200} height={600}/>}
+      {rawData && selectedVisualization === 'marker' && <MarkersChart data={rawData}/>}
     </div>);
 }
