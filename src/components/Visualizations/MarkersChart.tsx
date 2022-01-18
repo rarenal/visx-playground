@@ -98,16 +98,17 @@ export const MarkersChart = ({data}: MarkersChartProps) => {
           </g>
         )}
         <g>
-          {markers.map((mark, index) => {
-            console.log(xScale(mark));
-            return (
-              <g>
+          {markers.map((mark, index) =>
+            (
+              <g key={`group-${index}`}>
                 <Annotation
+                  key={`annotation-${index}`}
                   x={((xScale(mark) ?? 0) + margin.left)}
                   y={margin.top}
                   dx={0}
                   dy={1}>
                   <LineSubject
+                    key={`line-${index}`}
                     orientation={'vertical'}
                     stroke={'#9d5ce2'}
                     min={margin.top}
@@ -115,13 +116,13 @@ export const MarkersChart = ({data}: MarkersChartProps) => {
                     strokeDasharray={8}
                   />
                   <Label title={`${toOrdinal(index + 1)} wave`}
-                         backgroundFill={"#9d5ce2"}
+                         key={`label-${index}`}
+                         backgroundFill={'#9d5ce2'}
                          width={74}
                          titleFontSize={12}/>
                 </Annotation>
               </g>
-            );
-          })}
+            ))}
         </g>
         <rect x={margin.left} y={margin.top} width={width} height={height} fill={'transparent'}
               onMouseMove={handleMouseMove}
