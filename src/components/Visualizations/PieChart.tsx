@@ -1,8 +1,7 @@
-import React from "react";
-
+import React, { useState, useEffect } from "react";
 import { LinearGradient } from "@visx/gradient";
 import { scaleOrdinal } from "@visx/scale";
-import Pie from "@visx/shape/lib/shapes/Pie";
+import Pie, { PieArcDatum } from "@visx/shape/lib/shapes/Pie";
 import { PieDatapoint } from "../../models";
 import { Group } from "@visx/group";
 import { Text } from "@visx/text";
@@ -16,19 +15,22 @@ const GRADIENT_ID = "gradient";
 const getValue = (pieData: PieDatapoint) => pieData.value;
 
 export const PieChart = ({ data }: PieChartProps) => {
+  const [sortedData, setSortedData] = useState(data);
+
+  useEffect(() => {
+    setSortedData(data.sort((a, b) => a.value - b.value));
+  }, [data]);
+
   const height = window.innerHeight,
     width = window.innerWidth;
 
   const getColorPalette = scaleOrdinal({
-    domain: data.map((datapoint) => datapoint.category),
-    range: [
-      "rgba(93,30,91,1)",
-      "rgba(93,30,91,0.8)",
-      "rgba(93,30,91,0.6)",
-      "rgba(93,30,91,0.4)",
-    ],
+    domain: sortedData.map((datapoint) => datapoint.category),
+    range: sortedData.map(() => `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`),
   });
   const radius = Math.min(height, width) / 2;
+  const getArcAngle = (arc: PieArcDatum<PieDatapoint>) =>
+    ((arc.startAngle + arc.endAngle) / 2) * (180 / Math.PI) - 90;
 
   return (
     <svg width={width} height={height}>
@@ -36,10 +38,12 @@ export const PieChart = ({ data }: PieChartProps) => {
       <rect fill={`url(#${GRADIENT_ID})`} width={width} height={height} />
       <Group top={height / 2} left={width / 2}>
         <Pie
-          data={data}
+          data={sortedData}
           pieValue={getValue}
           outerRadius={radius}
-          pieSortValues={(a, b) => -1}
+          innerRadius={radius * 0.39}
+          cornerRadius={3}
+          padAngle={0.01}
         >
           {(pie) => {
             return pie.arcs.map((arc, index) => {
@@ -48,7 +52,6 @@ export const PieChart = ({ data }: PieChartProps) => {
               const hasSpaceForLabel = arc.endAngle - arc.startAngle >= 0.1;
               const arcPath = pie.path(arc)!;
               const arcFill = getColorPalette(category);
-              console.log(arc);
 
               return (
                 <g key={`arc-${category}-${index}`}>
@@ -59,14 +62,10 @@ export const PieChart = ({ data }: PieChartProps) => {
                       y={centroidY}
                       dy=".33em"
                       fill="#ffffff"
-                      fontSize={22}
+                      fontSize={16}
                       textAnchor="middle"
                       pointerEvents="none"
-                      angle={
-                        ((arc.startAngle + arc.endAngle) / 2) *
-                          (180 / Math.PI) -
-                        90
-                      }
+                      angle={getArcAngle(arc)}
                     >
                       {arc.data.category}
                     </Text>
